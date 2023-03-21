@@ -4,7 +4,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import FormData from 'form-data'
 import assert from 'assert'
-import fetch from 'cross-fetch'
+import { fetch } from '../src/lib/uniFetch'
 
 // TODO: need to setup storage-api server for this test
 const URL = 'http://localhost:8000/storage/v1'

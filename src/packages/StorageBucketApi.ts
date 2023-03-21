@@ -45,9 +45,7 @@ export default class StorageBucketApi {
    *
    * @param id The unique identifier of the bucket you would like to retrieve.
    */
-  async getBucket(
-    id: string
-  ): Promise<
+  async getBucket(id: string): Promise<
     | {
         data: Bucket
         error: null
@@ -147,9 +145,7 @@ export default class StorageBucketApi {
    *
    * @param id The unique identifier of the bucket you would like to empty.
    */
-  async emptyBucket(
-    id: string
-  ): Promise<
+  async emptyBucket(id: string): Promise<
     | {
         data: { message: string }
         error: null
@@ -182,9 +178,7 @@ export default class StorageBucketApi {
    *
    * @param id The unique identifier of the bucket you would like to delete.
    */
-  async deleteBucket(
-    id: string
-  ): Promise<
+  async deleteBucket(id: string): Promise<
     | {
         data: { message: string }
         error: null

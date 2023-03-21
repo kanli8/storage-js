@@ -385,7 +385,8 @@ export default class StorageFileApi {
         headers: this.headers,
         noResolveJson: true,
       })
-      const data = await res.blob()
+      // const data = await res.blob()
+      const data = res
       return { data, error: null }
     } catch (error) {
       if (isStorageError(error)) {
@@ -442,9 +443,7 @@ export default class StorageFileApi {
    *
    * @param paths An array of files to delete, including the path and file name. For example [`'folder/image.png'`].
    */
-  async remove(
-    paths: string[]
-  ): Promise<
+  async remove(paths: string[]): Promise<
     | {
         data: FileObject[]
         error: null

@@ -1,6 +1,6 @@
 import { StorageApiError, StorageUnknownError } from './errors'
-import { resolveResponse } from './helpers'
 import { FetchParameters } from './types'
+import { fetch } from './uniFetch'
 
 export type Fetch = typeof fetch
 
@@ -15,23 +15,6 @@ export type RequestMethodType = 'GET' | 'POST' | 'PUT' | 'DELETE'
 
 const _getErrorMessage = (err: any): string =>
   err.msg || err.message || err.error_description || err.error || JSON.stringify(err)
-
-const handleError = async (error: unknown, reject: (reason?: any) => void) => {
-  const Res = await resolveResponse()
-
-  if (error instanceof Res) {
-    error
-      .json()
-      .then((err) => {
-        reject(new StorageApiError(_getErrorMessage(err), error.status || 500))
-      })
-      .catch((err) => {
-        reject(new StorageUnknownError(_getErrorMessage(err), err))
-      })
-  } else {
-    reject(new StorageUnknownError(_getErrorMessage(error), error))
-  }
-}
 
 const _getRequestParams = (
   method: RequestMethodType,
@@ -60,13 +43,23 @@ async function _handleRequest(
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     fetcher(url, _getRequestParams(method, options, parameters, body))
-      .then((result) => {
-        if (!result.ok) throw result
-        if (options?.noResolveJson) return result
-        return result.json()
+      .then((res: any) => {
+        // console.log('storage----fetch-----res = ', res)
+        const data = res.data
+        if (!data.error) {
+          // console.log('storage----fetch-----data = ', data)
+          resolve(data)
+        } else {
+          let error = data
+          error.statusCode = res.statusCode
+          // console.log('storage----fetch-----error = ', error)
+          reject(new StorageApiError(_getErrorMessage(error), error.statusCode || 500))
+        }
       })
-      .then((data) => resolve(data))
-      .catch((error) => handleError(error, reject))
+      .catch((error) => {
+        // console.log('storage----fetch-----catch error = ', error)
+        reject(new StorageUnknownError(_getErrorMessage(error), error))
+      })
   })
 }
 
