@@ -3,8 +3,15 @@ import StorageBucketApi from './packages/StorageBucketApi'
 import { Fetch } from './lib/fetch'
 
 export class StorageClient extends StorageBucketApi {
-  constructor(url: string, headers: { [key: string]: string } = {}, fetch?: Fetch) {
+  _accessToken: () => Promise<string | null>
+  constructor(
+    url: string,
+    headers: { [key: string]: string } = {},
+    getAccessToken: () => Promise<string | null>,
+    fetch?: Fetch
+  ) {
     super(url, headers, fetch)
+    this._accessToken = getAccessToken
   }
 
   /**
@@ -13,6 +20,10 @@ export class StorageClient extends StorageBucketApi {
    * @param id The bucket id to operate on.
    */
   from(id: string): StorageFileApi {
-    return new StorageFileApi(this.url, this.headers, id, this.fetch)
+    return new StorageFileApi(this.url, this.headers, this.getAccessToken, id, this.fetch)
+  }
+
+  get getAccessToken(): () => Promise<string | null> {
+    return this._accessToken
   }
 }

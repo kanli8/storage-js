@@ -9,6 +9,8 @@ import {
   TransformOptions,
 } from '../lib/types'
 
+declare const wx: any
+
 const DEFAULT_SEARCH_OPTIONS = {
   limit: 100,
   offset: 0,
@@ -29,15 +31,17 @@ export default class StorageFileApi {
   protected headers: { [key: string]: string }
   protected bucketId?: string
   protected fetch: Fetch
-
+  protected accessToken: () => Promise<string | null>
   constructor(
     url: string,
     headers: { [key: string]: string } = {},
+    accessToken: () => Promise<string | null>,
     bucketId?: string,
     fetch?: Fetch
   ) {
     this.url = url
     this.headers = headers
+    this.accessToken = accessToken
     this.bucketId = bucketId
     this.fetch = resolveFetch(fetch)
   }
@@ -90,9 +94,11 @@ export default class StorageFileApi {
         body = fileBody
         body.append('cacheControl', options.cacheControl as string)
       } else {
+        //
         body = fileBody
         headers['cache-control'] = `max-age=${options.cacheControl}`
         headers['content-type'] = options.contentType as string
+        return this.uploadFromWechat(path, body as string)
       }
 
       const cleanPath = this._removeEmptyFolders(path)
@@ -355,18 +361,12 @@ export default class StorageFileApi {
     }
   }
 
-  /**
-   * Downloads a file from a private bucket. For public buckets, make a request to the URL returned from `getPublicUrl` instead.
-   *
-   * @param path The full path and file name of the file to be downloaded. For example `folder/image.png`.
-   * @param options.transform Transform the asset before serving it to the client.
-   */
-  async download(
+  async uploadFromWechat(
     path: string,
-    options?: { transform?: TransformOptions }
+    body: string
   ): Promise<
     | {
-        data: Blob
+        data: { path: string }
         error: null
       }
     | {
@@ -374,27 +374,120 @@ export default class StorageFileApi {
         error: StorageError
       }
   > {
+    const options = { ...DEFAULT_FILE_OPTIONS }
+    const headers: Record<string, string> = {
+      ...this.headers,
+      ...{ method: 'POST' },
+      ...{ 'x-upsert': String(options.upsert as boolean) },
+    }
+
+    headers['cache-control'] = `max-age=${options.cacheControl}`
+    headers['content-type'] = options.contentType as string
+
+    const token = (await this.accessToken()) ?? null
+    if (token == null) {
+    } else {
+      headers['Authorization'] = `Bearer ${token}`
+    }
+
+    const cleanPath = this._removeEmptyFolders(path)
+    const _path = this._getFinalPath(cleanPath)
+    return new Promise((resolve, reject) => {
+      // wx.uploadFile({
+      //   url: 'http://192.168.0.70:8000/storage/v1/object/test2/public/test112.png', //仅为示例，非真实的接口地址
+      //   filePath: avatarFile,
+      //   name: 'file',
+      //      header: {
+      //         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
+      //         'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
+      //       },
+      //   success (res){
+      //     const data = res.data
+      //     //do something
+      // console.log(data) ;
+      //   }
+      // }) ;
+      wx.uploadFile({
+        url: `${this.url}/object/${_path}`,
+        filePath: body,
+        name: 'file',
+        header: headers,
+        success: (res: any) => {
+          if (res.statusCode === 200) {
+            resolve({
+              data: { path: _path },
+              error: null,
+            })
+          }
+        },
+        fail: (err: any) => {
+          reject({
+            data: null,
+            error: err,
+          })
+        },
+      })
+    })
+  }
+
+  /**
+   * Downloads a file from a private bucket. For public buckets, make a request to the URL returned from `getPublicUrl` instead.
+   *
+   * @param path The full path and file name of the file to be downloaded. For example `folder/image.png`.
+   * @param options.transform Transform the asset before serving it to the client.
+   *
+   * wx ,only download image
+   */
+  async download(
+    path: string,
+    options?: { transform?: TransformOptions }
+  ): Promise<
+    | {
+        tempUrl: string
+        error: null
+      }
+    | {
+        tempUrl: null
+        error: StorageError
+      }
+  > {
     const wantsTransformation = typeof options?.transform !== 'undefined'
     const renderPath = wantsTransformation ? 'render/image/authenticated' : 'object'
+    const _path = this._getFinalPath(path)
     const transformationQuery = this.transformOptsToQueryString(options?.transform || {})
     const queryString = transformationQuery ? `?${transformationQuery}` : ''
 
-    try {
-      const _path = this._getFinalPath(path)
-      const res = await get(this.fetch, `${this.url}/${renderPath}/${_path}${queryString}`, {
-        headers: this.headers,
-        noResolveJson: true,
-      })
-      // const data = await res.blob()
-      const data = res
-      return { data, error: null }
-    } catch (error) {
-      if (isStorageError(error)) {
-        return { data: null, error }
-      }
-
-      throw error
+    let header: { [key: string]: string } = {}
+    const token = (await this.accessToken()) ?? null
+    if (token == null) {
+      header = this.headers
+    } else {
+      header = { ...this.headers, Authorization: `Bearer ${token}` }
     }
+    return new Promise((resolve, reject) => {
+      wx.downloadFile({
+        url: `${this.url}/${renderPath}/${_path}${queryString}`,
+        header: header,
+        success: (res: any) => {
+          if (res.statusCode === 200) {
+            resolve({
+              tempUrl: res.tempFilePath,
+              error: null,
+            })
+
+            // this.setData({
+            //   imgSrc: res.tempFilePath // 将下载后的图片路径存储在数据中
+            // });
+          }
+        },
+        fail: (err: any) => {
+          reject({
+            tempUrl: null,
+            error: err,
+          })
+        },
+      })
+    })
   }
 
   /**
