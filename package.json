@@ -1,6 +1,6 @@
 {
-  "name": "@supabase/storage-js",
-  "version": "0.0.0",
+  "name": "@kanli8_supabase/storage-js",
+  "version": "2.3.1-2",
   "description": "Isomorphic storage client for Supabase.",
   "keywords": [
     "javascript",
