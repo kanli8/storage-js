@@ -9,7 +9,7 @@ import {
   TransformOptions,
 } from '../lib/types'
 
-declare const wx: any
+declare const uni: any
 
 const DEFAULT_SEARCH_OPTIONS = {
   limit: 100,
@@ -393,21 +393,7 @@ export default class StorageFileApi {
     const cleanPath = this._removeEmptyFolders(path)
     const _path = this._getFinalPath(cleanPath)
     return new Promise((resolve, reject) => {
-      // wx.uploadFile({
-      //   url: 'http://192.168.0.70:8000/storage/v1/object/test2/public/test112.png', //仅为示例，非真实的接口地址
-      //   filePath: avatarFile,
-      //   name: 'file',
-      //      header: {
-      //         'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE',
-      //         'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyAgCiAgICAicm9sZSI6ICJhbm9uIiwKICAgICJpc3MiOiAic3VwYWJhc2UtZGVtbyIsCiAgICAiaWF0IjogMTY0MTc2OTIwMCwKICAgICJleHAiOiAxNzk5NTM1NjAwCn0.dc_X5iR_VP_qT0zsiyj_I_OZ2T9FtRU2BBNWN8Bu4GE'
-      //       },
-      //   success (res){
-      //     const data = res.data
-      //     //do something
-      // console.log(data) ;
-      //   }
-      // }) ;
-      wx.uploadFile({
+      uni.uploadFile({
         url: `${this.url}/object/${_path}`,
         filePath: body,
         name: 'file',
@@ -465,7 +451,7 @@ export default class StorageFileApi {
       header = { ...this.headers, Authorization: `Bearer ${token}` }
     }
     return new Promise((resolve, reject) => {
-      wx.downloadFile({
+      uni.downloadFile({
         url: `${this.url}/${renderPath}/${_path}${queryString}`,
         header: header,
         success: (res: any) => {
