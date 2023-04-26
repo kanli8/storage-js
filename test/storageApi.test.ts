@@ -3,7 +3,7 @@ import { StorageClient } from '../src/index'
 // TODO: need to setup storage-api server for this test
 const URL = 'http://localhost:8000/storage/v1'
 const KEY =
-  'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTYwMzk2ODgzNCwiZXhwIjoyNTUwNjUzNjM0LCJhdWQiOiIiLCJzdWIiOiIzMTdlYWRjZS02MzFhLTQ0MjktYTBiYi1mMTlhN2E1MTdiNGEiLCJSb2xlIjoicG9zdGdyZXMifQ.pZobPtp6gDcX0UbzMmG3FHSlg4m4Q-22tKtGWalOrNo'
+  'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2ODA5NjcxMTUsImV4cCI6MTcxMjUwMzI1MywiYXVkIjoiIiwic3ViIjoiMzE3ZWFkY2UtNjMxYS00NDI5LWEwYmItZjE5YTdhNTE3YjRhIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.NNzc54y9cZ2QLUHVSrCPOcGE2E0i8ouldc-AaWLsI08'
 
 const storage = new StorageClient(URL, { Authorization: `Bearer ${KEY}` })
 const newBucketName = `my-new-bucket-${Date.now()}`
@@ -42,11 +42,35 @@ describe('bucket api', () => {
   })
 
   test('update bucket', async () => {
-    const updateRes = await storage.updateBucket(newBucketName, { public: true })
+    const newBucketName = `my-new-bucket-${Date.now()}`
+    await storage.createBucket(newBucketName)
+    const updateRes = await storage.updateBucket(newBucketName, {
+      public: true,
+      fileSizeLimit: '20mb',
+      allowedMimeTypes: ['image/jpeg'],
+    })
     expect(updateRes.error).toBeNull()
     expect(updateRes.data).toMatchSnapshot()
     const getRes = await storage.getBucket(newBucketName)
     expect(getRes.data!.public).toBe(true)
+    expect(getRes.data!.file_size_limit).toBe(20000000)
+    expect(getRes.data!.allowed_mime_types).toEqual(['image/jpeg'])
+  })
+
+  test('partially update bucket', async () => {
+    const newBucketName = `my-new-bucket-${Date.now()}`
+    await storage.createBucket(newBucketName, {
+      public: true,
+      fileSizeLimit: '20mb',
+      allowedMimeTypes: ['image/jpeg'],
+    })
+    const updateRes = await storage.updateBucket(newBucketName, { public: false })
+    expect(updateRes.error).toBeNull()
+    expect(updateRes.data).toMatchSnapshot()
+    const getRes = await storage.getBucket(newBucketName)
+    expect(getRes.data!.public).toBe(false)
+    expect(getRes.data!.file_size_limit).toBe(20000000)
+    expect(getRes.data!.allowed_mime_types).toEqual(['image/jpeg'])
   })
 
   test('empty bucket', async () => {

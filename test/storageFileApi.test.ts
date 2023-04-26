@@ -9,7 +9,7 @@ import { fetch } from '../src/lib/uniFetch'
 // TODO: need to setup storage-api server for this test
 const URL = 'http://localhost:8000/storage/v1'
 const KEY =
-  'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJzdXBhYmFzZSIsImlhdCI6MTYwMzk2ODgzNCwiZXhwIjoyNTUwNjUzNjM0LCJhdWQiOiIiLCJzdWIiOiIzMTdlYWRjZS02MzFhLTQ0MjktYTBiYi1mMTlhN2E1MTdiNGEiLCJSb2xlIjoicG9zdGdyZXMifQ.pZobPtp6gDcX0UbzMmG3FHSlg4m4Q-22tKtGWalOrNo'
+  'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpc3MiOiJPbmxpbmUgSldUIEJ1aWxkZXIiLCJpYXQiOjE2ODA5NjcxMTUsImV4cCI6MTcxMjUwMzI1MywiYXVkIjoiIiwic3ViIjoiMzE3ZWFkY2UtNjMxYS00NDI5LWEwYmItZjE5YTdhNTE3YjRhIiwicm9sZSI6ImF1dGhlbnRpY2F0ZWQifQ.NNzc54y9cZ2QLUHVSrCPOcGE2E0i8ouldc-AaWLsI08'
 
 const storage = new StorageClient(URL, { Authorization: `Bearer ${KEY}` })
 
@@ -67,7 +67,9 @@ describe('Object API', () => {
     })
 
     test('sign url', async () => {
-      await storage.from(bucketName).upload(uploadPath, file)
+      const uploadRes = await storage.from(bucketName).upload(uploadPath, file)
+      expect(uploadRes.error).toBeNull()
+
       const res = await storage.from(bucketName).createSignedUrl(uploadPath, 2000)
 
       expect(res.error).toBeNull()
@@ -158,6 +160,108 @@ describe('Object API', () => {
       const updateRes = await storage.from(bucketName).update(uploadPath, file2)
       expect(updateRes.error).toBeNull()
       expect(updateRes.data?.path).toEqual(uploadPath)
+    })
+
+    test('can upload a file within the file size limit', async () => {
+      const bucketName = 'with-limit' + Date.now()
+      await storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: '1mb',
+      })
+
+      const res = await storage.from(bucketName).upload(uploadPath, file)
+      expect(res.error).toBeNull()
+    })
+
+    test('cannot upload a file that exceed the file size limit', async () => {
+      const bucketName = 'with-limit' + Date.now()
+      await storage.createBucket(bucketName, {
+        public: true,
+        fileSizeLimit: '1kb',
+      })
+
+      const res = await storage.from(bucketName).upload(uploadPath, file)
+      expect(res.error).toEqual({
+        error: 'Payload too large',
+        message: 'The object exceeded the maximum allowed size',
+        statusCode: '413',
+      })
+    })
+
+    test('can upload a file with a valid mime type', async () => {
+      const bucketName = 'with-limit' + Date.now()
+      await storage.createBucket(bucketName, {
+        public: true,
+        allowedMimeTypes: ['image/png'],
+      })
+
+      const res = await storage.from(bucketName).upload(uploadPath, file, {
+        contentType: 'image/png',
+      })
+      expect(res.error).toBeNull()
+    })
+
+    test('cannot upload a file an invalid mime type', async () => {
+      const bucketName = 'with-limit' + Date.now()
+      await storage.createBucket(bucketName, {
+        public: true,
+        allowedMimeTypes: ['image/png'],
+      })
+
+      const res = await storage.from(bucketName).upload(uploadPath, file, {
+        contentType: 'image/jpeg',
+      })
+      expect(res.error).toEqual({
+        error: 'invalid_mime_type',
+        message: 'mime type not supported',
+        statusCode: '422',
+      })
+    })
+
+    test('sign url for upload', async () => {
+      const res = await storage.from(bucketName).createSignedUploadUrl(uploadPath)
+
+      expect(res.error).toBeNull()
+      expect(res.data?.path).toBe(uploadPath)
+      expect(res.data?.token).toBeDefined()
+      expect(res.data?.signedUrl).toContain(`${URL}/object/upload/sign/${bucketName}/${uploadPath}`)
+    })
+
+    test('can upload with a signed url', async () => {
+      const { data, error } = await storage.from(bucketName).createSignedUploadUrl(uploadPath)
+
+      expect(error).toBeNull()
+      assert(data?.path)
+
+      const uploadRes = await storage
+        .from(bucketName)
+        .uploadToSignedUrl(data.path, data.token, file)
+
+      expect(uploadRes.error).toBeNull()
+      expect(uploadRes.data?.path).toEqual(uploadPath)
+    })
+
+    test('cannot upload to a signed url twice', async () => {
+      const { data, error } = await storage.from(bucketName).createSignedUploadUrl(uploadPath)
+
+      expect(error).toBeNull()
+      assert(data?.path)
+
+      const uploadRes = await storage
+        .from(bucketName)
+        .uploadToSignedUrl(data.path, data.token, file)
+
+      expect(uploadRes.error).toBeNull()
+      expect(uploadRes.data?.path).toEqual(uploadPath)
+
+      const uploadRes2 = await storage
+        .from(bucketName)
+        .uploadToSignedUrl(data.path, data.token, file)
+      expect(uploadRes2.error).toEqual({
+        error: 'Duplicate',
+        message: 'The resource already exists',
+        statusCode: '409',
+      })
     })
   })
 

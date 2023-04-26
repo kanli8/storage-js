@@ -2,6 +2,8 @@ export interface Bucket {
   id: string
   name: string
   owner: string
+  file_size_limit?: number
+  allowed_mime_types?: string[]
   created_at: string
   updated_at: string
   public: boolean
@@ -37,6 +39,10 @@ export interface FileOptions {
    * When upsert is set to true, the file is overwritten if it exists. When set to false, an error is thrown if the object already exists. Defaults to false.
    */
   upsert?: boolean
+  /**
+   * The duplex option is a string parameter that enables or disables duplex streaming, allowing for both reading and writing data in the same stream. It can be passed as an option to the fetch() method.
+   */
+  duplex?: string
 }
 
 export interface SearchOptions {
@@ -90,14 +96,16 @@ export interface TransformOptions {
    */
   resize?: 'cover' | 'contain' | 'fill'
   /**
-   * Set the quality of the returned image, this is percentage based, default 80
+   * Set the quality of the returned image.
+   * A number from 20 to 100, with 100 being the highest quality.
+   * Defaults to 80
    */
   quality?: number
   /**
    * Specify the format of the image requested.
    *
-   * When using 'origin' we force the format to be the same as the original image,
-   * bypassing automatic browser optimisation such as webp conversion
+   * When using 'origin' we force the format to be the same as the original image.
+   * When this option is not passed in, images are optimized to modern image formats like Webp.
    */
   format?: 'origin'
 }
